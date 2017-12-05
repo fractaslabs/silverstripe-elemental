@@ -26,7 +26,6 @@ class ElementalArea extends DataObject
      */
     private static $db = [
         'OwnerClassName' => 'Varchar(255)',
-        'SearchContent' => 'HTMLText'
     ];
 
     /**
@@ -86,47 +85,6 @@ class ElementalArea extends DataObject
     }
 
     /**
-     *
-     */
-    public function onBeforeWrite()
-    {
-        parent::onBeforeWrite();
-
-        // @todo
-        // $this->SearchContent = $this->renderSearchContent();
-    }
-
-    /**
-     * Render the elements out and push into ElementContent so that Solr can
-     * index.
-     *
-    public function renderSearchContent()
-    {
-        // Copy elements content to ElementContent to enable search
-        $searchableContent = array();
-
-        Requirements::clear();
-
-        foreach ($this->Elements() as $element) {
-            if ($element->config()->exclude_from_content) {
-                continue;
-            }
-
-            $controller = $element->getController();
-
-            // concert to raw so that html parts of template aren't matched in
-            // search results, e.g link hrefs
-            array_push($searchableContent, Convert::html2raw($controller->forTemplate()));
-        }
-
-        Requirements::restore();
-
-        $renderedSearchContent = trim(implode(' ', $searchableContent));
-
-        return $renderedSearchContent;
-    }*/
-
-    /**
      * @return HTMLText
      */
     public function forTemplate()
@@ -174,9 +132,6 @@ class ElementalArea extends DataObject
         return $controllers;
     }
 
-    /**
-     *
-     */
     public function getOwnerPage()
     {
         if ($this->OwnerClassName) {
@@ -186,7 +141,7 @@ class ElementalArea extends DataObject
             foreach ($elementalAreaRelations as $eaRelationship) {
                 $areaID = $eaRelationship . 'ID';
 
-                $page = $class::get()->filter($areaID, $this->ID);
+                $page = Versioned::get_by_stage($class, Versioned::get_stage())->filter($areaID, $this->ID);
 
                 if ($page && $page->exists()) {
                     return $page->first();
@@ -194,23 +149,14 @@ class ElementalArea extends DataObject
             }
         }
 
-        $originalMode = Versioned::get_stage();
-
-        if (!$originalMode) {
-            $originalMode = Versioned::DRAFT;
-        }
-
-        Versioned::set_stage(Versioned::DRAFT);
-
         foreach ($this->supportedPageTypes() as $class) {
             $elementalAreaRelations = Injector::inst()->get($class)->getElementalRelations();
 
             foreach ($elementalAreaRelations as $eaRelationship) {
                 $areaID = $eaRelationship . 'ID';
-                $page = $class::get()->filter($areaID, $this->ID);
+                $page = Versioned::get_by_stage($class, Versioned::DRAFT)->filter($areaID, $this->ID);
 
                 if ($page && $page->exists()) {
-                    Versioned::set_stage($originalMode);
                     $this->OwnerClassName = $class;
                     $this->write();
 
@@ -218,8 +164,6 @@ class ElementalArea extends DataObject
                 }
             }
         }
-
-        Versioned::set_stage($originalMode);
 
         return false;
     }
