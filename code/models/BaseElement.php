@@ -11,7 +11,8 @@ class BaseElement extends Widget
     private static $db = array(
         'ExtraClass' => 'Varchar(255)',
         'HideTitle' => 'Boolean',
-        'AvailableGlobally' => 'Boolean(1)'
+        'AvailableGlobally' => 'Boolean(1)',
+        'InContainer' => 'Boolean(1)'
     );
 
     /**
@@ -118,6 +119,7 @@ class BaseElement extends Widget
         $fields->removeByName('Sort');
         $fields->removeByName('ExtraClass');
         $fields->removeByName('AvailableGlobally');
+        $fields->removeByName('InContainer');
 
         if (!$this->config()->enable_title_in_template) {
             $fields->removeByName('HideTitle');
@@ -130,6 +132,7 @@ class BaseElement extends Widget
 
         $fields->addFieldToTab('Root.Settings', new TextField('ExtraClass', 'Extra CSS Classes to add'));
         $fields->addFieldToTab('Root.Settings', new CheckboxField('AvailableGlobally', 'Available globally - can be linked to multiple pages'));
+        $fields->addFieldToTab('Root.Settings', new CheckboxField('InContainer', 'Center this block in layout'));
 
         if (!is_a($this, 'ElementList')) {
             $lists = ElementList::get()->filter('ParentID', $this->ParentID);
