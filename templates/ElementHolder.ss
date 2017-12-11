@@ -6,6 +6,7 @@
 			</div>
 		<% end_if %>
 	<% end_uncached %>
-
+	<% if InContainer %><div class="container"><% end_if %>
 	$Element
+	<% if InContainer %></div><% end_if %>
 </div>

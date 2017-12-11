@@ -64,6 +64,7 @@ class BaseElement extends DataObject implements CMSPreviewable
     private static $db = [
         'Title' => 'Varchar(255)',
         'ShowTitle' => 'Boolean',
+        'InContainer' => 'Boolean',
         'Sort' => 'Int',
         'ExtraClass' => 'Varchar(255)',
         'Style' => 'Varchar(255)'
@@ -237,14 +238,14 @@ class BaseElement extends DataObject implements CMSPreviewable
             $fields->removeByName('ParentID');
             $fields->removeByName('Sort');
 
-            $fields->addFieldToTab(
-                'Root.Settings',
+            $fields->addFieldsToTab('Root.Settings', [
                 TextField::create('ExtraClass', _t(__CLASS__ . '.ExtraCssClassesLabel', 'Custom CSS classes'))
                     ->setAttribute(
                         'placeholder',
                         _t(__CLASS__ . '.ExtraCssClassesPlaceholder', 'my_class another_class')
-                    )
-            );
+                    ),
+                CheckboxField::create('InContainer', _t(__CLASS__ . '.InContainerLabel', 'Check this to center this block on layout'))
+            ]);
 
             // Add a combined field for "Title" and "Displayed" checkbox in a Bootstrap input group
             $fields->removeByName('ShowTitle');
