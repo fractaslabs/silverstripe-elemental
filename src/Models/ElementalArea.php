@@ -131,13 +131,16 @@ class ElementalArea extends DataObject
 
         return $controllers;
     }
-
+    
     public function getOwnerPage()
     {
         if ($this->OwnerClassName) {
             $class = $this->OwnerClassName;
-            $elementalAreaRelations = Injector::inst()->get($class)->getElementalRelations();
-
+            $instance = Injector::inst()->get($class);
+            if (!ClassInfo::hasMethod($instance, 'getElementalRelations')) {
+                return;
+            }
+            $elementalAreaRelations = $instance->getElementalRelations();
             foreach ($elementalAreaRelations as $eaRelationship) {
                 $areaID = $eaRelationship . 'ID';
 
@@ -150,8 +153,11 @@ class ElementalArea extends DataObject
         }
 
         foreach ($this->supportedPageTypes() as $class) {
-            $elementalAreaRelations = Injector::inst()->get($class)->getElementalRelations();
-
+            $instance = Injector::inst()->get($class);
+            if (!ClassInfo::hasMethod($instance, 'getElementalRelations')) {
+                return;
+            }
+            $elementalAreaRelations = $instance->getElementalRelations();
             foreach ($elementalAreaRelations as $eaRelationship) {
                 $areaID = $eaRelationship . 'ID';
                 $page = Versioned::get_by_stage($class, Versioned::DRAFT)->filter($areaID, $this->ID);
