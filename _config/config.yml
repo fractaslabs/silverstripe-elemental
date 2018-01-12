@@ -3,8 +3,8 @@ Name: elemental
 ---
 
 SilverStripe\Admin\LeftAndMain:
-  extra_requirements_css:
-    - 'dnadesign/silverstripe-elemental:client/dist/styles/bundle.css'
+  extensions:
+    - DNADesign\Elemental\Extensions\ElementalLeftAndMainExtension
 
 SilverStripe\CMS\Controllers\ContentController:
   extensions:
