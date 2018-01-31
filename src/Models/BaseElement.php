@@ -40,6 +40,7 @@ use SilverStripe\Security\Member;
 use SilverStripe\SiteConfig\SiteConfig;
 use SilverStripe\Versioned\Versioned;
 use SilverStripe\View\Parsers\URLSegmentFilter;
+use SilverStripe\View\ArrayData;
 use SilverStripe\View\Requirements;
 use SilverStripe\View\SSViewer;
 use Symbiote\GridFieldExtensions\GridFieldTitleHeader;
@@ -800,7 +801,7 @@ class BaseElement extends DataObject implements CMSPreviewable
     public function getStatusFlag($cached = true)
     {
         if (!$this->_cache_statusFlag || !$cached) {
-            $flag = \SilverStripe\View\ArrayData::create();
+            $flag = ArrayData::create();
             if ($this->isOnLiveOnly()) {
                 $flag = \SilverStripe\View\ArrayData::create([
                     'Title' => _t(__CLASS__.'.ONLIVEONLYSHORT', 'On live only'),
@@ -808,25 +809,25 @@ class BaseElement extends DataObject implements CMSPreviewable
                     'ClassName' => 'removedfromdraft'
                 ]);
             } elseif ($this->isArchived()) {
-                $flag = \SilverStripe\View\ArrayData::create([
+                $flag = ArrayData::create([
                     'Title' => _t(__CLASS__.'.ARCHIVEDPAGESHORT', 'Archived'),
                     'Description' => _t(__CLASS__.'.ARCHIVEDPAGEHELP', 'Block is removed from draft and live'),
                     'ClassName' => 'archived'
                 ]);
             } elseif ($this->isOnDraftOnly()) {
-                $flag = \SilverStripe\View\ArrayData::create([
+                $flag = ArrayData::create([
                     'Title' => _t(__CLASS__.'.ADDEDTODRAFTSHORT', 'Draft'),
                     'Description' => _t(__CLASS__.'.ADDEDTODRAFTHELP', "Block has not been published yet"),
                     'ClassName' => 'addedtodraft'
                 ]);
             } elseif ($this->isModifiedOnDraft()) {
-                $flag = \SilverStripe\View\ArrayData::create([
+                $flag = ArrayData::create([
                     'Title' => _t(__CLASS__.'.MODIFIEDONDRAFTSHORT', 'Modified'),
                     'Description' => _t(__CLASS__.'.MODIFIEDONDRAFTHELP', 'Block has unpublished changes'),
                     'ClassName' => 'modified'
                 ]);
             } elseif ($this->isPublished()) {
-                $flag = \SilverStripe\View\ArrayData::create([
+                $flag = ArrayData::create([
                     'Title' => _t(__CLASS__.'.PUBLISHEDSHORT', 'Published'),
                     'Description' => _t(__CLASS__.'.PUBLISHEDHELP', 'Block is published'),
                     'ClassName' => 'published'
