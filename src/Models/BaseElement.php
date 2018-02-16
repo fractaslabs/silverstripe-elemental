@@ -35,6 +35,7 @@ use SilverStripe\Security\Permission;
 use SilverStripe\Versioned\Versioned;
 use SilverStripe\View\ArrayData;
 use SilverStripe\View\Parsers\URLSegmentFilter;
+use SilverStripe\View\ArrayData;
 use SilverStripe\View\Requirements;
 use Symbiote\GridFieldExtensions\GridFieldTitleHeader;
 
@@ -850,6 +851,52 @@ class BaseElement extends DataObject implements CMSPreviewable
         }
 
         return _t(__CLASS__ . '.Modified', 'Modified');
+    }
+
+    protected $_cache_statusFlag = null;
+
+    public function getStatusFlag($cached = true)
+    {
+        if (!$this->_cache_statusFlag || !$cached) {
+            $flag = ArrayData::create();
+            if ($this->isOnLiveOnly()) {
+                $flag = \SilverStripe\View\ArrayData::create([
+                    'Title' => _t(__CLASS__.'.ONLIVEONLYSHORT', 'On live only'),
+                    'Description' => _t(__CLASS__.'.ONLIVEONLYSHORTHELP', 'Block is published, but has been deleted from draft'),
+                    'ClassName' => 'removedfromdraft'
+                ]);
+            } elseif ($this->isArchived()) {
+                $flag = ArrayData::create([
+                    'Title' => _t(__CLASS__.'.ARCHIVEDPAGESHORT', 'Archived'),
+                    'Description' => _t(__CLASS__.'.ARCHIVEDPAGEHELP', 'Block is removed from draft and live'),
+                    'ClassName' => 'archived'
+                ]);
+            } elseif ($this->isOnDraftOnly()) {
+                $flag = ArrayData::create([
+                    'Title' => _t(__CLASS__.'.ADDEDTODRAFTSHORT', 'Draft'),
+                    'Description' => _t(__CLASS__.'.ADDEDTODRAFTHELP', "Block has not been published yet"),
+                    'ClassName' => 'addedtodraft'
+                ]);
+            } elseif ($this->isModifiedOnDraft()) {
+                $flag = ArrayData::create([
+                    'Title' => _t(__CLASS__.'.MODIFIEDONDRAFTSHORT', 'Modified'),
+                    'Description' => _t(__CLASS__.'.MODIFIEDONDRAFTHELP', 'Block has unpublished changes'),
+                    'ClassName' => 'modified'
+                ]);
+            } elseif ($this->isPublished()) {
+                $flag = ArrayData::create([
+                    'Title' => _t(__CLASS__.'.PUBLISHEDSHORT', 'Published'),
+                    'Description' => _t(__CLASS__.'.PUBLISHEDHELP', 'Block is published'),
+                    'ClassName' => 'published'
+                ]);
+            }
+
+            $this->extend('updateStatusFlag', $flag);
+
+            $this->_cache_statusFlag = $flag;
+        }
+
+        return $this->_cache_statusFlag;
     }
 
     /**
