@@ -35,7 +35,6 @@ use SilverStripe\Security\Permission;
 use SilverStripe\Versioned\Versioned;
 use SilverStripe\View\ArrayData;
 use SilverStripe\View\Parsers\URLSegmentFilter;
-use SilverStripe\View\ArrayData;
 use SilverStripe\View\Requirements;
 use Symbiote\GridFieldExtensions\GridFieldTitleHeader;
 
