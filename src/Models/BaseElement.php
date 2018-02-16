@@ -2,24 +2,19 @@
 
 namespace DNADesign\Elemental\Models;
 
-use Exception;
+use DNADesign\Elemental\Controllers\ElementController;
 use DNADesign\Elemental\Forms\ElementalGridFieldHistoryButton;
 use DNADesign\Elemental\Forms\HistoricalVersionedGridFieldItemRequest;
 use DNADesign\Elemental\Forms\TextCheckboxGroupField;
-use DNADesign\Elemental\Controllers\ElementController;
+use Exception;
 use SilverStripe\CMS\Controllers\CMSPageEditController;
 use SilverStripe\Control\Controller;
 use SilverStripe\Control\Director;
 use SilverStripe\Core\ClassInfo;
-use SilverStripe\Core\Config\Config;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\DropdownField;
 use SilverStripe\Forms\FieldList;
-use SilverStripe\Forms\HiddenField;
-use SilverStripe\Forms\NumericField;
-use SilverStripe\Forms\ReadonlyField;
-use SilverStripe\Forms\TextField;
 use SilverStripe\Forms\GridField\GridField;
 use SilverStripe\Forms\GridField\GridFieldConfig_RecordViewer;
 use SilverStripe\Forms\GridField\GridFieldDataColumns;
@@ -27,23 +22,34 @@ use SilverStripe\Forms\GridField\GridFieldDetailForm;
 use SilverStripe\Forms\GridField\GridFieldPageCount;
 use SilverStripe\Forms\GridField\GridFieldSortableHeader;
 use SilverStripe\Forms\GridField\GridFieldToolbarHeader;
-use SilverStripe\Forms\GridField\GridFieldVersionedState;
 use SilverStripe\Forms\GridField\GridFieldViewButton;
-use SilverStripe\ORM\ArrayList;
+use SilverStripe\Forms\HiddenField;
+use SilverStripe\Forms\NumericField;
+use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\CMSPreviewable;
 use SilverStripe\ORM\DataObject;
-use SilverStripe\ORM\DB;
 use SilverStripe\ORM\FieldType\DBField;
-use SilverStripe\ORM\Search\SearchContext;
-use SilverStripe\Security\Permission;
+use SilverStripe\ORM\FieldType\DBHTMLText;
 use SilverStripe\Security\Member;
-use SilverStripe\SiteConfig\SiteConfig;
+use SilverStripe\Security\Permission;
 use SilverStripe\Versioned\Versioned;
+use SilverStripe\View\ArrayData;
 use SilverStripe\View\Parsers\URLSegmentFilter;
 use SilverStripe\View\Requirements;
-use SilverStripe\View\SSViewer;
 use Symbiote\GridFieldExtensions\GridFieldTitleHeader;
 
+/**
+ * Class BaseElement
+ * @package DNADesign\Elemental\Models
+ *
+ * @property string $Title
+ * @property bool $ShowTitle
+ * @property int $Sort
+ * @property string $ExtraClass
+ * @property string $Style
+ *
+ * @method ElementalArea Parent()
+ */
 class BaseElement extends DataObject implements CMSPreviewable
 {
     /**
@@ -147,7 +153,6 @@ class BaseElement extends DataObject implements CMSPreviewable
      * Basic permissions, defaults to page perms where possible.
      *
      * @param Member $member
-     *
      * @return boolean
      */
     public function canView($member = null)
@@ -214,6 +219,9 @@ class BaseElement extends DataObject implements CMSPreviewable
         return (Permission::check('CMS_ACCESS', 'any', $member)) ? true : null;
     }
 
+    /**
+     * @throws \SilverStripe\ORM\ValidationException
+     */
     public function onBeforeWrite()
     {
         parent::onBeforeWrite();
@@ -408,6 +416,8 @@ class BaseElement extends DataObject implements CMSPreviewable
         if ($templates) {
             return $this->renderWith($templates);
         }
+
+        return null;
     }
 
     /**
@@ -459,7 +469,9 @@ class BaseElement extends DataObject implements CMSPreviewable
     }
 
     /**
-     * @return SiteTree
+     * @return null|DataObject
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \SilverStripe\ORM\ValidationException
      */
     public function getPage()
     {
@@ -513,9 +525,10 @@ class BaseElement extends DataObject implements CMSPreviewable
     }
 
     /**
-     * @param string $action
-     *
-     * @return string
+     * @param string|null $action
+     * @return string|null
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \SilverStripe\ORM\ValidationException
      */
     public function AbsoluteLink($action = null)
     {
@@ -524,12 +537,15 @@ class BaseElement extends DataObject implements CMSPreviewable
 
             return $link;
         }
+
+        return null;
     }
 
     /**
-     * @param string $action
-     *
+     * @param string|null $action
      * @return string
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \SilverStripe\ORM\ValidationException
      */
     public function Link($action = null)
     {
@@ -540,12 +556,15 @@ class BaseElement extends DataObject implements CMSPreviewable
 
             return $link;
         }
+
+        return null;
     }
 
     /**
-     * @param string $action
-     *
+     * @param string|null $action
      * @return string
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \SilverStripe\ORM\ValidationException
      */
     public function PreviewLink($action = null)
     {
@@ -573,7 +592,9 @@ class BaseElement extends DataObject implements CMSPreviewable
     }
 
     /**
-     * @return string|null
+     * @return null|string
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \SilverStripe\ORM\ValidationException
      */
     public function CMSEditLink()
     {
@@ -591,20 +612,26 @@ class BaseElement extends DataObject implements CMSPreviewable
             $this->ID
         );
 
-        return Controller::join_links(
+        $link = Controller::join_links(
             $link,
             'edit'
         );
+
+        $this->extend('updateCMSEditLink', $link);
+
+        return $link;
     }
 
     /**
      * Retrieve a elemental area relation for creating cms links
      *
-     * @return string The name of a valid elemental area relation
+     * @return int|string The name of a valid elemental area relation
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \SilverStripe\ORM\ValidationException
      */
     public function getAreaRelationName()
     {
-        $page = $this->getPage(true);
+        $page = $this->getPage();
 
         if ($page) {
             $has_one = $page->config()->get('has_one');
@@ -636,7 +663,9 @@ class BaseElement extends DataObject implements CMSPreviewable
     }
 
     /**
-     * @return string|null
+     * @return null|string
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \SilverStripe\ORM\ValidationException
      */
     public function getEditLink()
     {
@@ -644,7 +673,9 @@ class BaseElement extends DataObject implements CMSPreviewable
     }
 
     /**
-     * @return HTMLText
+     * @return DBField|null
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \SilverStripe\ORM\ValidationException
      */
     public function PageCMSEditLink()
     {
@@ -655,6 +686,8 @@ class BaseElement extends DataObject implements CMSPreviewable
                 $page->Title
             ));
         }
+
+        return null;
     }
 
     /**
@@ -680,15 +713,38 @@ class BaseElement extends DataObject implements CMSPreviewable
     /**
      * Generate markup for element type icons suitable for use in GridFields.
      *
-     * @return HTMLVarchar
+     * @return null|DBHTMLText
      */
     public function getIcon()
     {
-        $iconClass = $this->config()->get('icon');
+        $data = ArrayData::create([]);
 
+        $iconClass = $this->config()->get('icon');
         if ($iconClass) {
-            return DBField::create_field('HTMLVarchar', '<i class="' . $iconClass . '"></i>');
+            $data->IconClass = $iconClass;
+
+            // Add versioned states (rendered as a circle over the icon)
+            if ($this->hasExtension(Versioned::class)) {
+                $data->IsVersioned = true;
+                if ($this->isOnDraftOnly()) {
+                    $data->VersionState = 'draft';
+                    $data->VersionStateTitle = _t(
+                        'SilverStripe\\Versioned\\VersionedGridFieldState\\VersionedGridFieldState.ADDEDTODRAFTHELP',
+                        'Item has not been published yet'
+                    );
+                } elseif ($this->isModifiedOnDraft()) {
+                    $data->VersionState = 'modified';
+                    $data->VersionStateTitle = $data->VersionStateTitle = _t(
+                        'SilverStripe\\Versioned\\VersionedGridFieldState\\VersionedGridFieldState.MODIFIEDONDRAFTHELP',
+                        'Item has unpublished changes'
+                    );
+                }
+            }
+
+            return $data->renderWith(__CLASS__ . '/PreviewIcon');
         }
+
+        return null;
     }
 
     /**
@@ -723,7 +779,7 @@ class BaseElement extends DataObject implements CMSPreviewable
     }
 
     /**
-     * @return HTMLText
+     * @return \SilverStripe\ORM\FieldType\DBHTMLText
      */
     public function getEditorPreview()
     {
@@ -741,6 +797,8 @@ class BaseElement extends DataObject implements CMSPreviewable
         if ($this->AuthorID) {
             return Member::get()->byId($this->AuthorID);
         }
+
+        return null;
     }
 
     /**
@@ -765,7 +823,9 @@ class BaseElement extends DataObject implements CMSPreviewable
     }
 
     /**
-     *
+     * @return mixed|null
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \SilverStripe\ORM\ValidationException
      */
     public function getPageTitle()
     {
