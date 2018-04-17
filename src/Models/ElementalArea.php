@@ -6,13 +6,13 @@ use DNADesign\Elemental\Extensions\ElementalAreasExtension;
 use SilverStripe\CMS\Model\SiteTree;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Extensible;
+use SilverStripe\Core\Injector\Injector;
 use SilverStripe\ORM\ArrayList;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBField;
 use SilverStripe\ORM\FieldType\DBHTMLText;
 use SilverStripe\ORM\HasManyList;
 use SilverStripe\Versioned\Versioned;
-use SilverStripe\Core\Injector\Injector;
 
 /**
  * Class ElementalArea
@@ -24,51 +24,34 @@ use SilverStripe\Core\Injector\Injector;
  */
 class ElementalArea extends DataObject
 {
-    /**
-     * @var array $db
-     */
     private static $db = [
         'OwnerClassName' => 'Varchar(255)',
     ];
 
-    /**
-     * @var array $has_many
-     */
     private static $has_many = [
-        'Elements' => BaseElement::class
+        'Elements' => BaseElement::class,
     ];
 
-    /**
-     * @var array
-     */
     private static $extensions = [
-        Versioned::class
+        Versioned::class,
     ];
 
-    /**
-     * @var array
-     */
     private static $owns = [
-        'Elements'
+        'Elements',
     ];
 
-    /**
-     * @var array
-     */
     private static $cascade_deletes = [
-        'Elements'
+        'Elements',
     ];
 
-    /**
-     * @var array
-     */
+    private static $cascade_duplicates = [
+        'Elements',
+    ];
+
     private static $summary_fields = [
-        'Title' => 'Title'
+        'Title' => 'Title',
     ];
 
-    /**
-     * @var string
-     */
     private static $table_name = 'ElementalArea';
 
     /**
@@ -156,7 +139,9 @@ class ElementalArea extends DataObject
             foreach ($elementalAreaRelations as $eaRelationship) {
                 $areaID = $eaRelationship . 'ID';
 
-                $page = Versioned::get_by_stage($class, Versioned::get_stage())->filter($areaID, $this->ID);
+                $currentStage = Versioned::get_stage() ?: Versioned::DRAFT;
+                $page = Versioned::get_by_stage($class, $currentStage)->filter($areaID, $this->ID);
+
 
                 if ($page && $page->exists()) {
                     return $page->first();
@@ -176,8 +161,10 @@ class ElementalArea extends DataObject
                 $page = Versioned::get_by_stage($class, Versioned::DRAFT)->filter($areaID, $this->ID);
 
                 if ($page && $page->exists()) {
-                    $this->OwnerClassName = $class;
-                    $this->write();
+                    if ($this->OwnerClassName !== $class) {
+                        $this->OwnerClassName = $class;
+                        $this->write();
+                    }
 
                     return $page->first();
                 }

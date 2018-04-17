@@ -3,11 +3,10 @@
 namespace DNADesign\Elemental\Models;
 
 use DNADesign\Elemental\Controllers\ElementController;
-use DNADesign\Elemental\Forms\ElementalGridFieldHistoryButton;
-use DNADesign\Elemental\Forms\HistoricalVersionedGridFieldItemRequest;
 use DNADesign\Elemental\Forms\TextCheckboxGroupField;
 use Exception;
 use SilverStripe\CMS\Controllers\CMSPageEditController;
+use SilverStripe\CMS\Model\SiteTree;
 use SilverStripe\Control\Controller;
 use SilverStripe\Control\Director;
 use SilverStripe\Core\ClassInfo;
@@ -15,28 +14,19 @@ use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\DropdownField;
 use SilverStripe\Forms\FieldList;
-use SilverStripe\Forms\GridField\GridField;
-use SilverStripe\Forms\GridField\GridFieldConfig_RecordViewer;
-use SilverStripe\Forms\GridField\GridFieldDataColumns;
-use SilverStripe\Forms\GridField\GridFieldDetailForm;
-use SilverStripe\Forms\GridField\GridFieldPageCount;
-use SilverStripe\Forms\GridField\GridFieldSortableHeader;
-use SilverStripe\Forms\GridField\GridFieldToolbarHeader;
-use SilverStripe\Forms\GridField\GridFieldViewButton;
 use SilverStripe\Forms\HiddenField;
 use SilverStripe\Forms\NumericField;
 use SilverStripe\Forms\TextField;
-use SilverStripe\ORM\CMSPreviewable;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBField;
 use SilverStripe\ORM\FieldType\DBHTMLText;
 use SilverStripe\Security\Member;
 use SilverStripe\Security\Permission;
 use SilverStripe\Versioned\Versioned;
+use SilverStripe\VersionedAdmin\Forms\HistoryViewerField;
 use SilverStripe\View\ArrayData;
 use SilverStripe\View\Parsers\URLSegmentFilter;
 use SilverStripe\View\Requirements;
-use Symbiote\GridFieldExtensions\GridFieldTitleHeader;
 
 /**
  * Class BaseElement
@@ -50,7 +40,7 @@ use Symbiote\GridFieldExtensions\GridFieldTitleHeader;
  *
  * @method ElementalArea Parent()
  */
-class BaseElement extends DataObject implements CMSPreviewable
+class BaseElement extends DataObject
 {
     /**
      * Override this on your custom elements to specify a CSS icon class
@@ -70,7 +60,6 @@ class BaseElement extends DataObject implements CMSPreviewable
     private static $db = [
         'Title' => 'Varchar(255)',
         'ShowTitle' => 'Boolean',
-        'InContainer' => 'Boolean',
         'Sort' => 'Int',
         'ExtraClass' => 'Varchar(255)',
         'Style' => 'Varchar(255)'
@@ -140,14 +129,14 @@ class BaseElement extends DataObject implements CMSPreviewable
      *
      * @var array
      */
-    protected static $_used_anchors = [];
+    protected static $used_anchors = [];
 
     /**
      * For caching 'getAnchor'
      *
      * @var string
      */
-    protected $_anchor = null;
+    protected $anchor = null;
 
     /**
      * Basic permissions, defaults to page perms where possible.
@@ -157,6 +146,11 @@ class BaseElement extends DataObject implements CMSPreviewable
      */
     public function canView($member = null)
     {
+        $extended = $this->extendedCan(__FUNCTION__, $member);
+        if ($extended !== null) {
+            return $extended;
+        }
+
         if ($this->hasMethod('getPage')) {
             if ($page = $this->getPage()) {
                 return $page->canView($member);
@@ -175,6 +169,11 @@ class BaseElement extends DataObject implements CMSPreviewable
      */
     public function canEdit($member = null)
     {
+        $extended = $this->extendedCan(__FUNCTION__, $member);
+        if ($extended !== null) {
+            return $extended;
+        }
+
         if ($this->hasMethod('getPage')) {
             if ($page = $this->getPage()) {
                 return $page->canEdit($member);
@@ -197,6 +196,11 @@ class BaseElement extends DataObject implements CMSPreviewable
      */
     public function canDelete($member = null)
     {
+        $extended = $this->extendedCan(__FUNCTION__, $member);
+        if ($extended !== null) {
+            return $extended;
+        }
+
         if ($this->hasMethod('getPage')) {
             if ($page = $this->getPage()) {
                 return $page->canArchive($member);
@@ -216,6 +220,11 @@ class BaseElement extends DataObject implements CMSPreviewable
      */
     public function canCreate($member = null, $context = array())
     {
+        $extended = $this->extendedCan(__FUNCTION__, $member);
+        if ($extended !== null) {
+            return $extended;
+        }
+
         return (Permission::check('CMS_ACCESS', 'any', $member)) ? true : null;
     }
 
@@ -246,14 +255,14 @@ class BaseElement extends DataObject implements CMSPreviewable
             $fields->removeByName('ParentID');
             $fields->removeByName('Sort');
 
-            $fields->addFieldsToTab('Root.Settings', [
+            $fields->addFieldToTab(
+                'Root.Settings',
                 TextField::create('ExtraClass', _t(__CLASS__ . '.ExtraCssClassesLabel', 'Custom CSS classes'))
                     ->setAttribute(
                         'placeholder',
                         _t(__CLASS__ . '.ExtraCssClassesPlaceholder', 'my_class another_class')
-                    ),
-                CheckboxField::create('InContainer', _t(__CLASS__ . '.InContainerLabel', 'Check this to center this block on layout'))
-            ]);
+                    )
+            );
 
             // Add a combined field for "Title" and "Displayed" checkbox in a Bootstrap input group
             $fields->removeByName('ShowTitle');
@@ -288,64 +297,18 @@ class BaseElement extends DataObject implements CMSPreviewable
                 $fields->removeByName('Style');
             }
 
-            $history = $this->getHistoryFields();
+            // Support for new history viewer in SS 4.2+
+            if (class_exists(HistoryViewerField::class)) {
+                Requirements::javascript('dnadesign/silverstripe-elemental:client/dist/js/bundle.js');
 
-            if ($history) {
-                $fields->addFieldsToTab('Root.History', $history);
+                $historyViewer = HistoryViewerField::create('ElementHistory');
+                $fields->addFieldToTab('Root.History', $historyViewer);
+
+                $fields->fieldByName('Root.History')->addExtraClass('elemental-block__history-tab');
             }
         });
 
         return parent::getCMSFields();
-    }
-
-    /**
-     * Returns the history fields for this element.
-     *
-     * @param  bool $checkLatestVersion Whether to check if this is the latest version. Prevents recursion, but can be
-     *                                  overridden to get the history GridField if required.
-     * @return FieldList
-     */
-    public function getHistoryFields($checkLatestVersion = true)
-    {
-        if ($checkLatestVersion && !$this->isLatestVersion()) {
-            // if viewing the history of the of page then don't show the history
-            // fields as then we have recursion.
-            return null;
-        }
-
-        Requirements::javascript('dnadesign/silverstripe-elemental:client/dist/js/bundle.js');
-
-        $config = GridFieldConfig_RecordViewer::create();
-        $config->removeComponentsByType(GridFieldPageCount::class);
-        $config->removeComponentsByType(GridFieldToolbarHeader::class);
-        // Replace the sortable ID column with a static header component
-        $config->removeComponentsByType(GridFieldSortableHeader::class);
-        $config->addComponent(new GridFieldTitleHeader);
-
-        $config
-            ->getComponentByType(GridFieldDetailForm::class)
-            ->setItemRequestClass(HistoricalVersionedGridFieldItemRequest::class);
-
-        $config->getComponentByType(GridFieldDataColumns::class)
-            ->setDisplayFields([
-                'Version' => '#',
-                'RecordStatus' => _t(__CLASS__ . '.Record', 'Record'),
-                'getAuthor.Name' => _t(__CLASS__ . '.Author', 'Author')
-            ])
-            ->setFieldFormatting([
-                'RecordStatus' => '$VersionedStateNice <span class=\"element-history__date--small\">on $LastEditedNice</span>',
-            ]);
-
-        $config->removeComponentsByType(GridFieldViewButton::class);
-        $config->addComponent(new ElementalGridFieldHistoryButton());
-
-        $history = Versioned::get_all_versions(__CLASS__, $this->ID)
-            ->sort('Version', 'DESC');
-
-        return FieldList::create(
-            GridField::create('History', '', $history, $config)
-                ->addExtraClass('elemental-block__history')
-        );
     }
 
     /**
@@ -385,7 +348,9 @@ class BaseElement extends DataObject implements CMSPreviewable
         $controllerClass = self::config()->controller_class;
 
         if (!class_exists($controllerClass)) {
-            throw new Exception('Could not find controller class ' . $controllerClass . ' as defined in ' . static::class);
+            throw new Exception(
+                'Could not find controller class ' . $controllerClass . ' as defined in ' . static::class
+            );
         }
 
         $this->controller = Injector::inst()->create($controllerClass, $this);
@@ -441,6 +406,7 @@ class BaseElement extends DataObject implements CMSPreviewable
                 break;
             }
 
+            $templates[] = $value . $suffix . '_'. $this->getAreaRelationName();
             $templates[] = $value . $suffix;
         }
 
@@ -491,8 +457,8 @@ class BaseElement extends DataObject implements CMSPreviewable
      */
     public function getAnchor()
     {
-        if ($this->_anchor !== null) {
-            return $this->_anchor;
+        if ($this->anchor !== null) {
+            return $this->anchor;
         }
 
         $anchorTitle = '';
@@ -516,12 +482,12 @@ class BaseElement extends DataObject implements CMSPreviewable
         // ie. If two elemental blocks have the same title, it'll append '-2', '-3'
         $result = $titleAsURL;
         $count = 1;
-        while (isset(self::$_used_anchors[$result]) && self::$_used_anchors[$result] !== $this->ID) {
+        while (isset(self::$used_anchors[$result]) && self::$used_anchors[$result] !== $this->ID) {
             ++$count;
-            $result = $titleAsURL.'-'.$count;
+            $result = $titleAsURL . '-' . $count;
         }
-        self::$_used_anchors[$result] = $this->ID;
-        return $this->_anchor = $result;
+        self::$used_anchors[$result] = $this->ID;
+        return $this->anchor = $result;
     }
 
     /**
@@ -605,9 +571,18 @@ class BaseElement extends DataObject implements CMSPreviewable
             return null;
         }
 
+        $editLinkPrefix = '';
+        if (!$page instanceof SiteTree && method_exists($page, 'CMSEditLink')) {
+            $editLinkPrefix = Controller::join_links($page->CMSEditLink(), 'ItemEditForm');
+        } else {
+            $editLinkPrefix = Controller::join_links(
+                singleton(CMSPageEditController::class)->Link('EditForm'),
+                $page->ID
+            );
+        }
+
         $link = Controller::join_links(
-            singleton(CMSPageEditController::class)->Link('EditForm'),
-            $page->ID,
+            $editLinkPrefix,
             'field/' . $relationName . '/item/',
             $this->ID
         );
@@ -638,7 +613,10 @@ class BaseElement extends DataObject implements CMSPreviewable
             $area = $this->Parent();
 
             foreach ($has_one as $relationName => $relationClass) {
-                if ($relationClass === $area->ClassName) {
+                if ($page instanceof BaseElement && $relationName === 'Parent') {
+                    continue;
+                }
+                if ($relationClass === $area->ClassName && $page->{$relationName}()->ID === $area->ID) {
                     return $relationName;
                 }
             }
@@ -836,75 +814,5 @@ class BaseElement extends DataObject implements CMSPreviewable
         }
 
         return null;
-    }
-
-    /**
-     * Get a "nice" label for use in the block history GridField
-     *
-     * @return string
-     */
-    public function getVersionedStateNice()
-    {
-        if ($this->WasPublished) {
-            return _t(__CLASS__ . '.Published', 'Published');
-        }
-
-        return _t(__CLASS__ . '.Modified', 'Modified');
-    }
-
-    protected $_cache_statusFlag = null;
-
-    public function getStatusFlag($cached = true)
-    {
-        if (!$this->_cache_statusFlag || !$cached) {
-            $flag = ArrayData::create();
-            if ($this->isOnLiveOnly()) {
-                $flag = \SilverStripe\View\ArrayData::create([
-                    'Title' => _t(__CLASS__.'.ONLIVEONLYSHORT', 'On live only'),
-                    'Description' => _t(__CLASS__.'.ONLIVEONLYSHORTHELP', 'Block is published, but has been deleted from draft'),
-                    'ClassName' => 'removedfromdraft'
-                ]);
-            } elseif ($this->isArchived()) {
-                $flag = ArrayData::create([
-                    'Title' => _t(__CLASS__.'.ARCHIVEDPAGESHORT', 'Archived'),
-                    'Description' => _t(__CLASS__.'.ARCHIVEDPAGEHELP', 'Block is removed from draft and live'),
-                    'ClassName' => 'archived'
-                ]);
-            } elseif ($this->isOnDraftOnly()) {
-                $flag = ArrayData::create([
-                    'Title' => _t(__CLASS__.'.ADDEDTODRAFTSHORT', 'Draft'),
-                    'Description' => _t(__CLASS__.'.ADDEDTODRAFTHELP', "Block has not been published yet"),
-                    'ClassName' => 'addedtodraft'
-                ]);
-            } elseif ($this->isModifiedOnDraft()) {
-                $flag = ArrayData::create([
-                    'Title' => _t(__CLASS__.'.MODIFIEDONDRAFTSHORT', 'Modified'),
-                    'Description' => _t(__CLASS__.'.MODIFIEDONDRAFTHELP', 'Block has unpublished changes'),
-                    'ClassName' => 'modified'
-                ]);
-            } elseif ($this->isPublished()) {
-                $flag = ArrayData::create([
-                    'Title' => _t(__CLASS__.'.PUBLISHEDSHORT', 'Published'),
-                    'Description' => _t(__CLASS__.'.PUBLISHEDHELP', 'Block is published'),
-                    'ClassName' => 'published'
-                ]);
-            }
-
-            $this->extend('updateStatusFlag', $flag);
-
-            $this->_cache_statusFlag = $flag;
-        }
-
-        return $this->_cache_statusFlag;
-    }
-
-    /**
-     * Return a formatted date for use in the block history GridField
-     *
-     * @return string
-     */
-    public function getLastEditedNice()
-    {
-        return $this->dbObject('LastEdited')->Nice();
     }
 }

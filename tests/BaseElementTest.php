@@ -2,22 +2,23 @@
 
 namespace DNADesign\Elemental\Tests;
 
-use DNADesign\Elemental\Extensions\ElementalPageExtension;
-use DNADesign\Elemental\Models\ElementalArea;
-use DNADesign\Elemental\Models\BaseElement;
+use function class_exists;
 use DNADesign\Elemental\Controllers\ElementController;
+use DNADesign\Elemental\Extensions\ElementalPageExtension;
+use DNADesign\Elemental\Models\BaseElement;
+use DNADesign\Elemental\Models\ElementalArea;
+use DNADesign\Elemental\Models\ElementContent;
 use DNADesign\Elemental\Tests\Src\TestElement;
 use DNADesign\Elemental\Tests\Src\TestPage;
-use SilverStripe\Core\Config\Config;
-use SilverStripe\Forms\GridField\GridField;
 use Page;
-use SilverStripe\CMS\Model\RedirectorPage;
+use SilverStripe\Core\Config\Config;
 use SilverStripe\Dev\FunctionalTest;
-use DNADesign\Elemental\Models\ElementContent;
+use SilverStripe\Forms\GridField\GridField;
+use SilverStripe\VersionedAdmin\Forms\HistoryViewerField;
 
 class BaseElementTest extends FunctionalTest
 {
-    protected static $fixture_file = 'ElementalPageExtensionTests.yml';
+    protected static $fixture_file = 'ElementalPageExtensionTest.yml';
 
     protected static $required_extensions = [
         Page::class => [
@@ -114,24 +115,18 @@ class BaseElementTest extends FunctionalTest
         $this->assertEmpty($element->getIcon());
     }
 
-    public function testGetHistoryFields()
+    public function testGetHistoryViewerField()
     {
+        if (!class_exists(HistoryViewerField::class)) {
+            $this->markTestSkipped('This test requires silverstripe/versioned-admin to be installed.');
+        }
         $this->logInWithPermission();
 
+        /** @var ElementContent $element */
         $element = $this->objFromFixture(ElementContent::class, 'content1');
-        $history = $element->getHistoryFields()->fieldByName('History');
-
-        $this->assertInstanceOf(GridField::class, $history);
-        $this->assertEquals(1, $history->getList()->count());
-
-        $element->HTML = '<p>Changed</p>';
-        $element->write();
-        $element->publishRecursive();
-
-        $history = $element->getHistoryFields()->fieldByName('History');
-
-        $this->assertInstanceOf(GridField::class, $history);
-        $this->assertEquals(2, $history->getList()->count(), 'Publishing a new version creates a new record');
+        
+        $history = $element->getCMSFields()->dataFieldByName('ElementHistory');
+        $this->assertInstanceOf(HistoryViewerField::class, $history);
     }
 
     public function testStyleVariants()

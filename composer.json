@@ -16,9 +16,10 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "require": {
-        "silverstripe/cms": "^4.0@dev",
+        "silverstripe/cms": "^4.2@dev",
+        "silverstripe/versioned-admin": "^1@dev",
         "symbiote/silverstripe-gridfieldextensions": "^3.1",
-        "silverstripe/vendor-plugin": "^1.0"
+        "silverstripe/vendor-plugin": "^1"
     },
     "require-dev": {
         "phpunit/phpunit": "^5.7",
@@ -26,15 +27,14 @@
     },
     "suggest": {
         "silverstripe/elemental-blocks": "Adds a set of common SilverStripe content block types",
-        "silverstripe/fulltextsearch": "Adds fulltext search capability for elements usin Solr",
+        "silverstripe/fulltextsearch": "Adds fulltext search capability for elements using Solr",
         "dnadesign/silverstripe-elemental-subsites": "Adds subsite support to elemental",
         "dnadesign/silverstripe-elemental-userforms": "Adds userform support to elemental",
         "dnadesign/silverstripe-elemental-virtual": "Adds support to share blocks between pages"
     },
     "extra": {
-        "installer-name": "elemental",
         "branch-alias": {
-            "dev-master": "2.x-dev"
+            "dev-master": "3.0.x-dev"
         },
         "expose": [
             "client/dist"

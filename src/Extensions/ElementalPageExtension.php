@@ -4,23 +4,20 @@ namespace DNADesign\Elemental\Extensions;
 
 use DNADesign\Elemental\Models\ElementalArea;
 use SilverStripe\Control\Controller;
-use SilverStripe\Core\Injector\Injector;
 use SilverStripe\View\Parsers\HTML4Value;
 
 class ElementalPageExtension extends ElementalAreasExtension
 {
-    /**
-     * @var array
-     */
     private static $has_one = [
-        'ElementalArea' => ElementalArea::class
+        'ElementalArea' => ElementalArea::class,
     ];
 
-    /**
-     * @var array
-     */
     private static $owns = [
-        'ElementalArea'
+        'ElementalArea',
+    ];
+
+    private static $cascade_duplicates = [
+        'ElementalArea',
     ];
 
     /**
